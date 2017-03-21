@@ -21,7 +21,7 @@
             [bidi.ring :refer (make-handler)]
             [bidi.bidi :refer (url-decode)]))
 
-(load-file (.getPath (io/resource "config.clj")))
+(def corpus-path (.toString (io/resource "corpus.txt")))
 
 (defn train [path]
   (let [reader (-> path
