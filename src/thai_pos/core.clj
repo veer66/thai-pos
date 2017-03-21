@@ -12,6 +12,8 @@
             [yaito-clj.core :as yaito]
             [clojure.string :as str]))
 
+(load-file (.getPath (io/resource "config.clj")))
+
 (defn train [path]
   (let [reader (-> path
                    (io/reader)
@@ -46,6 +48,8 @@
 
 (def tokenize (yaito/create-tokenizer (into-array (extract-words corpus-path))))
 (def tag (make-tagger (train corpus-path)))
+
+
 
 (tag (tokenize "กาบินมา"))
 
