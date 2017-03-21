@@ -8,9 +8,18 @@
   (:import eu.danieldk.nlp.jitar.wordhandler.LexiconWordHandler)
   (:import eu.danieldk.nlp.jitar.wordhandler.SuffixWordHandler)
   (:import eu.danieldk.nlp.jitar.wordhandler.WordHandler)
+  (:use ring.middleware.resource
+        ring.middleware.params
+        hiccup.core
+        hiccup.page
+        hiccup.form
+        hiccup.util
+        hiccup.element)
   (:require [clojure.java.io :as io]
             [yaito-clj.core :as yaito]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [bidi.ring :refer (make-handler)]
+            [bidi.bidi :refer (url-decode)]))
 
 (load-file (.getPath (io/resource "config.clj")))
 
@@ -49,11 +58,52 @@
 (def tokenize (yaito/create-tokenizer (into-array (extract-words corpus-path))))
 (def tag (make-tagger (train corpus-path)))
 
+(defn response
+  [body]
+  {:status  200
+   :headers {"Content-Type" "text/html; charset=UTF-8"}
+   :body body})
+
+(defn text-form [text]
+  (form-to {:id "text-form"} [:post "/"]
+           (text-area {:cols 80
+                       :rows 20} "text" text)
+           [:br ]
+           [:input {:type "submit" :value "Tag"}]))
+
+(defn header
+  ([] (header "Thai Part-of-speech tagger"))
+  ([title] [:head
+            (include-css "/css/style.css")
+            [:title title]
+            [:meta {:charset "utf-8"}]]))
 
 
-(tag (tokenize "กาบินมา"))
+(defn tag-with-text [text]
+  (let [toks (tokenize text)
+        tags (tag toks)]
+    (str/join " " (map #(str %1 "/" %2) toks tags))))
 
-(defn foo
-  "I don't do a whole lot."
-  [x]
-  (println x "Hello, World!"))
+(defn index-handler
+  [req]
+  (let [text (get (:form-params req) "text")]
+    (response
+     (html5 {:lang "th"}
+            (header)
+            [:body
+             [:div.text-form (text-form text)]
+             (when (some? text)
+               [:div.tag-result
+                (->> (str/split-lines text)
+                     (map #(tag-with-text %))
+                     (map #(vector :p %)))])]))))
+
+(def handler
+  (make-handler ["/" {"" (wrap-params index-handler)}]))
+
+(def app (-> (make-handler ["/" {""
+                                 (wrap-params index-handler)}])
+             (wrap-resource "public")))
+
+
+
